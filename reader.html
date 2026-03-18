@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Reader — Good for You</title>
+<link rel="icon" href="favicon.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="assets/images/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* ── Reset ── */
+*, *::before, *::after {
+  margin: 0; padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:root {
+  --bg:      #030712;
+  --primary: #6366f1;
+  --cyan:    #22d3ee;
+  --green:   #22c55e;
+  --text:    #e5e7eb;
+  --shadow:  rgba(0,0,0,0.85);
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Poppins', sans-serif;
+}
+
+/* ── Prevent screenshot overlay ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 99998;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 120px,
+    rgba(99,102,241,0.018) 120px,
+    rgba(99,102,241,0.018) 121px
+  );
+}
+
+/* ── Background orbs ── */
+.bg-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.18;
+  animation: orbDrift 18s ease-in-out infinite;
+}
+.bg-orb:nth-child(1) { width:500px; height:500px; background:#6366f1; top:-120px; left:-100px; animation-delay:0s; }
+.bg-orb:nth-child(2) { width:380px; height:380px; background:#22d3ee; bottom:-80px; right:-80px; animation-delay:-6s; }
+.bg-orb:nth-child(3) { width:300px; height:300px; background:#a78bfa; top:40%; left:40%; animation-delay:-12s; }
+@keyframes orbDrift {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33%      { transform: translate(30px,-20px) scale(1.05); }
+  66%      { transform: translate(-20px,25px) scale(0.97); }
+}
+
+/* ── Stage ── */
+#stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  perspective: 2800px;
+  perspective-origin: 50% 50%;
+}
+
+/* ── Book container ── */
+#bookWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── The book itself ── */
+#book {
+  position: relative;
+  transform-style: preserve-3d;
+  /* Tilted ambient resting pose like a real book */
+  transform: rotateX(4deg) rotateY(-6deg);
+  filter: drop-shadow(0 40px 80px rgba(0,0,0,0.9));
+  transition: filter 0.4s;
+}
+
+/* ── Page ── */
+.page {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  transition: transform 0.85s cubic-bezier(0.645, 0.045, 0.355, 1.000);
+  cursor: pointer;
+  border-radius: 2px 10px 10px 2px;
+  /* Subtle page stack shadow */
+  box-shadow:
+    2px 0 6px rgba(0,0,0,0.4),
+    inset -2px 0 8px rgba(0,0,0,0.25);
+}
+
+/* ── Front face ── */
+.page-front {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: #111;
+}
+.page-front img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  border-radius: inherit;
+}
+
+/* ── Back face ── */
+.page-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px 2px 2px 10px;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: rotateY(180deg);
+  background: #0d0d1a;
+  /* Soft back-page gradient */
+  background: linear-gradient(160deg, #0f172a 0%, #0a0d1a 100%);
+}
+.page-back img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  transform: scaleX(-1); /* mirror on back */
+  opacity: 0.08;
+  filter: blur(2px);
+}
+
+/* ── Page spine crease ── */
+.page::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 18px;
+  background: linear-gradient(to right,
+    rgba(0,0,0,0.55) 0%,
+    rgba(0,0,0,0.15) 60%,
+    transparent 100%
+  );
+  z-index: 2;
+  border-radius: 2px 0 0 2px;
+  pointer-events: none;
+}
+
+/* ── Page curl highlight (top-right) ── */
+.page-front::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 32px; height: 32px;
+  background: radial-gradient(circle at top right, rgba(255,255,255,0.07), transparent 70%);
+  border-radius: 0 10px 0 0;
+  pointer-events: none;
+}
+
+/* ── Flipped state ── */
+.page.flipped {
+  transform: rotateY(-180deg);
+}
+
+/* ── Page number ── */
+#counter {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: rgba(10,15,30,0.85);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 8px 22px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.7);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+}
+#counter.visible { opacity: 1; }
+
+/* ── Nav arrows ── */
+.nav-btn {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: rgba(15,23,42,0.75);
+  border: 1px solid rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.25s;
+  color: rgba(255,255,255,0.6);
+  font-size: 1.1rem;
+}
+.nav-btn:hover {
+  background: rgba(99,102,241,0.35);
+  border-color: rgba(99,102,241,0.6);
+  color: #fff;
+  transform: translateY(-50%) scale(1.08);
+}
+.nav-btn:active { transform: translateY(-50%) scale(0.94); }
+#btnPrev { left: 16px; }
+#btnNext { right: 16px; }
+.nav-btn.dim { opacity: 0.2; pointer-events: none; }
+
+/* ── Back link ── */
+#backLink {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  text-decoration: none;
+  color: rgba(255,255,255,0.45);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  transition: color 0.2s;
+}
+#backLink:hover { color: #fff; }
+#backLink svg { opacity: 0.7; }
+
+/* ── Loading state ── */
+#loader {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--bg);
+  transition: opacity 0.6s;
+}
+#loader.hidden { opacity: 0; pointer-events: none; }
+.loader-ring {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.08);
+  border-top-color: var(--cyan);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loader p {
+  font-size: 0.8rem;
+  opacity: 0.35;
+  letter-spacing: 0.06em;
+}
+
+/* ── Page flip ripple effect ── */
+.flip-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255,255,255,0.06) 50%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.page.flipping .flip-ripple { opacity: 1; }
+
+/* ── Book shadow on stage ── */
+#bookShadow {
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 85%;
+  height: 40px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.7) 0%, transparent 70%);
+  pointer-events: none;
+  filter: blur(8px);
+}
+
+/* ── Ambient page glow ── */
+#pageGlow {
+  position: absolute;
+  inset: -20px;
+  border-radius: 20px;
+  background: transparent;
+  pointer-events: none;
+  transition: box-shadow 0.5s;
+}
+
+/* ── Mobile: full width ── */
+@media (max-width: 500px) {
+  #book {
+    transform: rotateX(2deg) rotateY(-3deg);
+  }
+  .nav-btn {
+    width: 38px; height: 38px;
+    font-size: 0.95rem;
+  }
+  #btnPrev { left: 8px; }
+  #btnNext { right: 8px; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- Animated background -->
+<div class="bg-canvas">
+  <div class="bg-orb"></div>
+  <div class="bg-orb"></div>
+  <div class="bg-orb"></div>
+</div>
+
+<!-- Loading screen -->
+<div id="loader">
+  <div class="loader-ring"></div>
+  <p>Loading your book…</p>
+</div>
+
+<!-- Back link -->
+<a href="/ebooks" id="backLink">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="15 18 9 12 15 6"/>
+  </svg>
+  eLibrary
+</a>
+
+<!-- Stage -->
+<div id="stage">
+  <div id="bookWrap">
+    <div id="pageGlow"></div>
+    <div id="book"></div>
+    <div id="bookShadow"></div>
+  </div>
+</div>
+
+<!-- Page counter -->
+<div id="counter"></div>
+
+<!-- Nav buttons -->
+<button id="btnPrev" class="nav-btn dim" onclick="prev()" title="Previous page">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+</button>
+<button id="btnNext" class="nav-btn" onclick="next()" title="Next page">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+</button>
+
+<script>
+// ── PAGES — edit this array to add/change pages ──────────────
+const PAGES = [
+  "assets/reader/images/subliminal-page1.jpg",
+  "assets/reader/images/subliminal-page2.jpg",
+  "assets/reader/images/subliminal-page3.jpg",
+  "assets/reader/images/subliminal-page4.jpg"
+];
+
+// ── Book dimensions (auto-calculated from first image ratio) ──
+const BOOK_W_MAX = 400;
+const BOOK_H_MAX = 580;
+
+// ── State ─────────────────────────────────────────────────────
+let current   = 0;
+let animating = false;
+
+// ── DOM refs ──────────────────────────────────────────────────
+const book    = document.getElementById("book");
+const counter = document.getElementById("counter");
+const loader  = document.getElementById("loader");
+const glow    = document.getElementById("pageGlow");
+const btnPrev = document.getElementById("btnPrev");
+const btnNext = document.getElementById("btnNext");
+
+// ── Size the book ─────────────────────────────────────────────
+function sizeBook() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const maxW = Math.min(BOOK_W_MAX, vw * 0.82);
+  const maxH = Math.min(BOOK_H_MAX, vh * 0.82);
+  book.style.width  = maxW + "px";
+  book.style.height = maxH + "px";
+}
+sizeBook();
+window.addEventListener("resize", sizeBook);
+
+// ── Build pages ───────────────────────────────────────────────
+let loadedCount = 0;
+
+PAGES.forEach((src, i) => {
+  const page = document.createElement("div");
+  page.className = "page";
+  page.style.zIndex = PAGES.length - i;
+
+  // Front face
+  const front = document.createElement("div");
+  front.className = "page-front";
+  const frontImg = document.createElement("img");
+  frontImg.src = src;
+  frontImg.alt = "Page " + (i + 1);
+  frontImg.draggable = false;
+  frontImg.onload = () => {
+    loadedCount++;
+    if (loadedCount === PAGES.length) hideLoader();
+  };
+  frontImg.onerror = () => {
+    loadedCount++;
+    if (loadedCount === PAGES.length) hideLoader();
+  };
+  const curlDiv = document.createElement("div");
+  curlDiv.className = "flip-ripple";
+  front.appendChild(frontImg);
+  front.appendChild(curlDiv);
+
+  // Back face (mirror of PREVIOUS page — like real book)
+  const back = document.createElement("div");
+  back.className = "page-back";
+  if (i > 0) {
+    const backImg = document.createElement("img");
+    backImg.src = PAGES[i - 1];
+    backImg.draggable = false;
+    back.appendChild(backImg);
+  }
+
+  page.appendChild(front);
+  page.appendChild(back);
+  book.appendChild(page);
+});
+
+// If no images, hide loader immediately
+if (PAGES.length === 0) hideLoader();
+
+function hideLoader() {
+  loader.classList.add("hidden");
+  counter.classList.add("visible");
+  updateCounter();
+  updateNav();
+  updateGlow();
+}
+
+// ── Navigation ────────────────────────────────────────────────
+function next() {
+  if (animating || current >= PAGES.length) return;
+  animating = true;
+
+  const pages = book.querySelectorAll(".page");
+  const pg = pages[current];
+  pg.classList.add("flipping");
+  setTimeout(() => pg.classList.remove("flipping"), 200);
+  pg.classList.add("flipped");
+  current++;
+
+  updateAll();
+  setTimeout(() => animating = false, 900);
+}
+
+function prev() {
+  if (animating || current <= 0) return;
+  animating = true;
+
+  const pages = book.querySelectorAll(".page");
+  current--;
+  const pg = pages[current];
+  pg.classList.add("flipping");
+  setTimeout(() => pg.classList.remove("flipping"), 200);
+  pg.classList.remove("flipped");
+
+  updateAll();
+  setTimeout(() => animating = false, 900);
+}
+
+function updateAll() {
+  updateCounter();
+  updateNav();
+  updateGlow();
+}
+
+function updateCounter() {
+  const display = Math.min(current + 1, PAGES.length);
+  counter.textContent = `${display} / ${PAGES.length}`;
+}
+
+function updateNav() {
+  btnPrev.classList.toggle("dim", current <= 0);
+  btnNext.classList.toggle("dim", current >= PAGES.length);
+}
+
+function updateGlow() {
+  // Subtle ambient glow colour cycles as you turn pages
+  const hues = ["rgba(99,102,241,0.12)", "rgba(34,211,238,0.1)", "rgba(167,139,250,0.1)", "rgba(34,197,94,0.08)"];
+  const h = hues[current % hues.length];
+  glow.style.boxShadow = `0 0 80px 30px ${h}`;
+}
+
+// ── Keyboard navigation ───────────────────────────────────────
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") {
+    e.preventDefault(); next();
+  }
+  if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+    e.preventDefault(); prev();
+  }
+});
+
+// ── Touch / swipe ─────────────────────────────────────────────
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener("touchstart", e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener("touchend", e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 45) {
+    if (dx < 0) next();
+    else prev();
+  }
+}, { passive: true });
+
+// ── Click zones: left half = prev, right half = next ─────────
+document.getElementById("stage").addEventListener("click", e => {
+  // Ignore clicks on nav buttons
+  if (e.target.closest(".nav-btn") || e.target.closest("#backLink")) return;
+  const half = window.innerWidth / 2;
+  if (e.clientX > half) next();
+  else prev();
+});
+
+// ── Anti-download & anti-screenshot protection ───────────────
+
+// Block right-click context menu
+document.addEventListener("contextmenu", e => e.preventDefault());
+
+// Block common save shortcuts
+document.addEventListener("keydown", e => {
+  // Ctrl+S, Ctrl+P, Ctrl+Shift+S, F12, Ctrl+U, Ctrl+A
+  if (
+    (e.ctrlKey && ["s","p","u","a"].includes(e.key.toLowerCase())) ||
+    (e.ctrlKey && e.shiftKey && ["s","i","j"].includes(e.key.toLowerCase())) ||
+    e.key === "F12" || e.key === "PrintScreen"
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  }
+});
+
+// Block drag
+document.addEventListener("dragstart", e => e.preventDefault());
+
+// Block copy
+document.addEventListener("copy", e => e.preventDefault());
+
+// CSS pointer-events already block image drags.
+// On mobile, long-press save is blocked via -webkit-touch-callout:none on * above.
+
+// ── Visibility API: blur book if tab is screenshot-focused ───
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    book.style.filter = "drop-shadow(0 40px 80px rgba(0,0,0,0.9)) blur(18px)";
+  } else {
+    setTimeout(() => {
+      book.style.filter = "drop-shadow(0 40px 80px rgba(0,0,0,0.9))";
+    }, 200);
+  }
+});
+</script>
+
+</body>
+</html>
